@@ -66,6 +66,8 @@ data class AiChatUiState(
     val suggestionsLoading: Boolean = false,
     val pendingFilePicker: AiFilePickerRequest? = null,
     val rootGrantedForRequest: Boolean = false,
+    /** Tokens reported by the provider for this session. */
+    val usage: AiUsageState = AiUsageState(),
 )
 
 /**
@@ -121,6 +123,24 @@ class AiChatViewModel : ViewModel() {
         AiSettings.save(config)
         if (previous.keepHistory && !config.keepHistory) AiSettings.clearHistory()
         _uiState.update { it.copy(config = config) }
+    }
+
+    /** Clear the session token counters without touching the conversation. */
+    fun resetUsage() {
+        _uiState.update { it.copy(usage = AiUsageState()) }
+    }
+
+    private fun recordUsage(usage: AiTokenUsage?) {
+        if (usage == null || usage.isEmpty) return
+        _uiState.update { state ->
+            state.copy(
+                usage = state.usage.copy(
+                    session = state.usage.session + usage,
+                    last = usage,
+                    requests = state.usage.requests + 1,
+                )
+            )
+        }
     }
 
     fun saveConfig(config: AiConfig) {
@@ -386,6 +406,7 @@ class AiChatViewModel : ViewModel() {
                 error = null,
                 suggestions = defaultSuggestions(),
                 suggestionsLoading = false,
+                usage = AiUsageState(),
             )
         }
     }
@@ -567,6 +588,7 @@ class AiChatViewModel : ViewModel() {
                     onDelta = deltaSink,
                 )
             }
+            recordUsage(completion.usage)
 
             if (!started && completion.text.isNotBlank()) {
                 appendAssistantDelta(assistantId, completion.text)

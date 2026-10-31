@@ -8,6 +8,7 @@
     <string name="ai_status_ready">Ready · %1$s</string>
     <string name="ai_open_chat">Open chat</string>
     <string name="ai_save_config">Save configuration</string>
+    <string name="ai_saved">Saved</string>
     <string name="ai_test_connection">Test connection</string>
     <string name="ai_testing">Testing…</string>
     <string name="ai_endpoint">API address</string>
@@ -249,4 +250,17 @@
     <string name="ai_advanced_reset">Reset advanced options</string>
     <string name="ai_advanced_warning">Incorrect values can break requests or expose data. The developer is not responsible for advanced API misconfiguration.</string>
     <string name="ai_connection_trust">Prompts, device context and your API key are sent to this endpoint. Only use an AI server you trust; the developer does not operate or control third-party AI endpoints.</string>
+    <!-- Token usage -->
+    <string name="ai_usage">Token usage</string>
+    <string name="ai_usage_section">Token usage</string>
+    <string name="ai_usage_hint">Counted from each API response on this device. No extra request is sent.</string>
+    <string name="ai_usage_session">This session</string>
+    <string name="ai_usage_last">Last request</string>
+    <string name="ai_usage_prompt">Prompt</string>
+    <string name="ai_usage_completion">Completion</string>
+    <string name="ai_usage_total">Total</string>
+    <string name="ai_usage_requests">%1$d requests</string>
+    <string name="ai_usage_requests_label">Requests</string>
+    <string name="ai_usage_empty">No token usage yet. Send a message; the provider must include usage in its response.</string>
+    <string name="ai_usage_reset">Reset</string>
 </resources>

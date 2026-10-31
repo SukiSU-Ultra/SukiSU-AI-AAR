@@ -16,6 +16,9 @@ echo  mode: %MODE%
 echo ============================================
 echo.
 
+set "ANDROID_HOME=D:\.gradle\android_sdk"
+set "ANDROID_SDK_ROOT=D:\.gradle\android_sdk"
+
 if /I "%MODE%"=="both" (
     call gradlew.bat :ai:assembleDebug :ai:assembleRelease
 ) else if /I "%MODE%"=="debug" (

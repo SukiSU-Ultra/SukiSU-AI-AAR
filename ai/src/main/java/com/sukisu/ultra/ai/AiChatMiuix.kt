@@ -42,10 +42,13 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,6 +113,7 @@ fun AiChatMiuix(
     val clearContent = stringResource(R.string.ai_clear_history_message)
     val clearConfirm = stringResource(R.string.ai_clear_history_confirm)
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var showUsage by remember { mutableStateOf(false) }
     val deleteTitle = stringResource(R.string.ai_delete_message_title)
     val deleteContent = stringResource(R.string.ai_delete_message_message)
     val deleteConfirm = stringResource(R.string.ai_delete_message_confirm)
@@ -152,6 +156,10 @@ fun AiChatMiuix(
                     }
                 },
                 actions = {
+                    AiUsageChipMiuix(
+                        state = state.usage,
+                        onClick = { showUsage = true },
+                    )
                     IconButton(onClick = actions.onOpenSettings) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,
@@ -291,66 +299,45 @@ fun AiChatMiuix(
         var alwaysAllow by remember(pending.request) { mutableStateOf(false) }
         OverlayDialog(
             show = true,
-            title = stringResource(R.string.ai_approval_title),
+            title = null,
             onDismissRequest = actions.onDeny,
             content = {
-                Text(
-                    text = pending.request.title,
-                    style = MiuixTheme.textStyles.body1,
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colorScheme.surfaceContainerHighest)
-                        .padding(12.dp),
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = pending.request.detail,
-                            modifier = Modifier
-                                .heightIn(max = 220.dp)
-                                .verticalScroll(rememberScrollState()),
-                            style = MiuixTheme.textStyles.body2,
-                            fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface,
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Checkbox(
-                        state = ToggleableState(alwaysAllow),
-                        onClick = { alwaysAllow = !alwaysAllow },
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    AiDialogHeaderMiuix(
+                        icon = Icons.Rounded.Warning,
+                        title = stringResource(R.string.ai_approval_title),
+                        subtitle = pending.request.title,
+                        container = colorScheme.tertiaryContainer,
+                        contentColor = colorScheme.onTertiaryContainer,
                     )
-                    Text(
+                    AiDialogScrollBoxMiuix(
+                        text = pending.request.detail,
+                        maxHeight = 220.dp,
+                        monospace = true,
+                    )
+                    AiDialogCheckRowMiuix(
+                        checked = alwaysAllow,
+                        onCheckedChange = { alwaysAllow = it },
                         text = stringResource(R.string.ai_approval_always),
-                        style = MiuixTheme.textStyles.body1,
                     )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    TextButton(
-                        text = stringResource(R.string.ai_approval_deny),
-                        onClick = actions.onDeny,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        text = stringResource(R.string.ai_approval_allow),
-                        onClick = {
+                    AiDialogActionsMiuix(
+                        dismissLabel = stringResource(R.string.ai_approval_deny),
+                        onDismiss = actions.onDeny,
+                        confirmLabel = stringResource(R.string.ai_approval_allow),
+                        onConfirm = {
                             if (alwaysAllow) actions.onApproveAlways else actions.onApprove()
                         },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
             },
+        )
+    }
+
+    if (showUsage) {
+        AiUsageDialogMiuix(
+            state = state.usage,
+            onReset = actions.onResetUsage,
+            onDismiss = { showUsage = false },
         )
     }
 }
@@ -440,15 +427,28 @@ private fun AiSetupCardMiuix(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = stringResource(
-                    if (enabled) R.string.ai_setup_required else R.string.ai_setup_disabled
-                ),
-                style = MiuixTheme.textStyles.body1,
-                color = colorScheme.onTertiaryContainer,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                AiIconBadgeMiuix(
+                    icon = Icons.Rounded.Tune,
+                    container = colorScheme.onTertiaryContainer.copy(alpha = 0.12f),
+                    contentColor = colorScheme.onTertiaryContainer,
+                    size = 34.dp,
+                    iconSize = 18.dp,
+                )
+                Text(
+                    text = stringResource(
+                        if (enabled) R.string.ai_setup_required else R.string.ai_setup_disabled
+                    ),
+                    modifier = Modifier.weight(1f),
+                    style = MiuixTheme.textStyles.body1,
+                    color = colorScheme.onTertiaryContainer,
+                )
+            }
             Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.ai_open_settings))
             }
@@ -602,16 +602,24 @@ private fun AiMessageBubbleMiuix(
                             }
                         }
                     }
-                    SelectionContainer {
-                        Text(
-                            text = linkifyAiText(message.content, colorScheme.primary),
-                            modifier = Modifier
-                                .heightIn(max = 260.dp)
-                                .verticalScroll(rememberScrollState()),
-                            style = MiuixTheme.textStyles.body2,
-                            fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSecondaryContainer,
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorScheme.surface)
+                            .padding(10.dp),
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                text = linkifyAiText(message.content, colorScheme.primary),
+                                modifier = Modifier
+                                    .heightIn(max = 260.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                style = MiuixTheme.textStyles.body2,
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onSurface,
+                            )
+                        }
                     }
                     val imagePath = message.imagePath
                     if (imagePath != null) {
@@ -654,20 +662,43 @@ private fun AiMessageBubbleMiuix(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(colorScheme.tertiaryContainer)
-                                .padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text(
-                                text = stringResource(R.string.ai_capability_needed),
-                                style = MiuixTheme.textStyles.body1,
-                                color = colorScheme.onTertiaryContainer,
-                            )
-                            Text(
-                                text = stringResource(R.string.ai_capability_hint),
-                                style = MiuixTheme.textStyles.body2,
-                                color = colorScheme.onTertiaryContainer,
+                            Row(
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                AiIconBadgeMiuix(
+                                    icon = Icons.Rounded.Lock,
+                                    container = colorScheme.onTertiaryContainer.copy(alpha = 0.12f),
+                                    contentColor = colorScheme.onTertiaryContainer,
+                                    size = 30.dp,
+                                    iconSize = 16.dp,
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.ai_capability_needed),
+                                        style = MiuixTheme.textStyles.body1,
+                                        color = colorScheme.onTertiaryContainer,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.ai_capability_hint),
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                                    )
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(colorScheme.onTertiaryContainer.copy(alpha = 0.12f)),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -700,11 +731,19 @@ private fun AiMessageBubbleMiuix(
                                         color = colorScheme.onTertiaryContainer,
                                     )
                                 } else if (!config.allowRootAccess) {
-                                    TextButton(
-                                        text = stringResource(R.string.ai_root_allow_once),
+                                    Button(
                                         onClick = { pendingRootGrant = true },
                                         modifier = Modifier.fillMaxWidth(),
-                                    )
+                                        colors = ButtonDefaults.buttonColors(
+                                            color = colorScheme.onTertiaryContainer,
+                                            contentColor = colorScheme.tertiaryContainer,
+                                        ),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.ai_root_allow_once),
+                                            style = MiuixTheme.textStyles.button,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -915,46 +954,29 @@ internal fun AiDisclaimerDialogMiuix(
     var checked by remember { mutableStateOf(false) }
     OverlayDialog(
         show = true,
-        title = stringResource(R.string.ai_disclaimer_title),
+        title = null,
         onDismissRequest = onExit,
         content = {
-            Text(
-                text = stringResource(R.string.ai_disclaimer_body),
-                style = MiuixTheme.textStyles.body2,
-                modifier = Modifier
-                    .heightIn(max = 260.dp)
-                    .verticalScroll(rememberScrollState()),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Checkbox(
-                    state = ToggleableState(checked),
-                    onClick = { checked = !checked },
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AiDialogHeaderMiuix(
+                    icon = Icons.Rounded.Shield,
+                    title = stringResource(R.string.ai_disclaimer_title),
                 )
-                Text(
+                AiDialogScrollBoxMiuix(
+                    text = stringResource(R.string.ai_disclaimer_body),
+                    maxHeight = 260.dp,
+                )
+                AiDialogCheckRowMiuix(
+                    checked = checked,
+                    onCheckedChange = { checked = it },
                     text = stringResource(R.string.ai_disclaimer_check),
-                    style = MiuixTheme.textStyles.body2,
-                    modifier = Modifier.weight(1f),
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = stringResource(R.string.ai_disclaimer_exit),
-                    onClick = onExit,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    text = stringResource(R.string.ai_disclaimer_accept),
-                    onClick = onAccept,
-                    enabled = checked,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                AiDialogActionsMiuix(
+                    dismissLabel = stringResource(R.string.ai_disclaimer_exit),
+                    onDismiss = onExit,
+                    confirmLabel = stringResource(R.string.ai_disclaimer_accept),
+                    onConfirm = onAccept,
+                    confirmEnabled = checked,
                 )
             }
         },
@@ -973,56 +995,43 @@ internal fun AiRiskDialogMiuix(
     val phraseMatches = phrase == null || phraseInput.trim().equals(phrase, ignoreCase = true)
     OverlayDialog(
         show = true,
-        title = stringResource(R.string.ai_risk_title),
+        title = null,
         onDismissRequest = onDismiss,
         content = {
-            Text(
-                text = stringResource(kind.bodyRes),
-                style = MiuixTheme.textStyles.body2,
-                modifier = Modifier
-                    .heightIn(max = 240.dp)
-                    .verticalScroll(rememberScrollState()),
-            )
-            if (phrase != null) {
-                TextField(
-                    value = phraseInput,
-                    onValueChange = { phraseInput = it.take(32) },
-                    label = stringResource(R.string.ai_advanced_phrase),
-                    useLabelAsPlaceholder = true,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AiDialogHeaderMiuix(
+                    icon = Icons.Rounded.Warning,
+                    title = stringResource(R.string.ai_risk_title),
+                    container = colorScheme.errorContainer,
+                    contentColor = colorScheme.onErrorContainer,
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Checkbox(
-                    state = ToggleableState(checked),
-                    onClick = { checked = !checked },
+                AiDialogScrollBoxMiuix(
+                    text = stringResource(kind.bodyRes),
+                    maxHeight = 240.dp,
                 )
-                Text(
+                if (phrase != null) {
+                    TextField(
+                        value = phraseInput,
+                        onValueChange = { phraseInput = it.take(32) },
+                        label = stringResource(R.string.ai_advanced_phrase),
+                        useLabelAsPlaceholder = true,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                AiDialogCheckRowMiuix(
+                    checked = checked,
+                    onCheckedChange = { checked = it },
                     text = stringResource(R.string.ai_risk_check),
-                    style = MiuixTheme.textStyles.body2,
-                    modifier = Modifier.weight(1f),
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = stringResource(R.string.ai_risk_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    text = stringResource(R.string.ai_risk_confirm),
-                    onClick = onConfirm,
-                    enabled = checked && phraseMatches,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                AiDialogActionsMiuix(
+                    dismissLabel = stringResource(R.string.ai_risk_cancel),
+                    onDismiss = onDismiss,
+                    confirmLabel = stringResource(R.string.ai_risk_confirm),
+                    onConfirm = onConfirm,
+                    confirmEnabled = checked && phraseMatches,
+                    confirmColor = colorScheme.error,
+                    confirmContentColor = colorScheme.onError,
                 )
             }
         },

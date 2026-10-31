@@ -104,4 +104,20 @@ class AiAdvancedOptionsTest {
         assertEquals(JsonPrimitive(true), options.extraBody["custom_flag"])
         assertEquals(2, options.extraBody.size)
     }
+
+    @Test
+    fun legacyBalanceKeysAreIgnored() {
+        val options = AiAdvancedOptions.parse(
+            """
+            {
+              "maxOutputTokens": 256,
+              "balanceUrl": "/api/user/self",
+              "balanceApiKey": "token",
+              "balanceUserId": "1",
+              "balanceQuotaPerUnit": 500000
+            }
+            """.trimIndent()
+        ).getOrThrow()
+        assertEquals(256, options.maxOutputTokens)
+    }
 }

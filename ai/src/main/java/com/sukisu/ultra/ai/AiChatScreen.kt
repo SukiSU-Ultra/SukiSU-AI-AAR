@@ -178,6 +178,7 @@ fun AiChatScreen(
         },
         onDeleteMessage = model::deleteMessage,
         onDismissError = model::clearError,
+        onResetUsage = model::resetUsage,
         onRefreshSuggestions = {
             if (disclaimerAccepted) {
                 runWithLocalNetwork { model.refreshSuggestions() }
@@ -220,6 +221,7 @@ data class AiChatActions(
     val onRunCode: (String) -> Unit,
     val onDeleteMessage: (String) -> Unit,
     val onDismissError: () -> Unit,
+    val onResetUsage: () -> Unit,
     val onRefreshSuggestions: () -> Unit,
     val onNavigate: (AiNavigationTarget) -> Unit,
     val onSetCapability: (AiCapability, Boolean) -> Unit,

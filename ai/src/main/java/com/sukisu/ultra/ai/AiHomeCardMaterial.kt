@@ -175,6 +175,7 @@ internal fun AiConfigEditorMaterial(
     onDraftChange: (AiConfig) -> Unit,
     testState: AiTestState,
     onTest: () -> Unit,
+    onSave: () -> Unit = {},
     fetchingModels: Boolean = false,
     onFetchModels: (Boolean) -> Unit = {},
 ) {
@@ -397,6 +398,13 @@ internal fun AiConfigEditorMaterial(
                     )
                 }
             }
+        }
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.ai_save_config))
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

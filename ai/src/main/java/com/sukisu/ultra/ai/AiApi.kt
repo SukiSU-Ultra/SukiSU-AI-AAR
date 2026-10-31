@@ -57,6 +57,8 @@ data class AiCompletion(
     val text: String,
     val toolCalls: List<AiToolCall> = emptyList(),
     val finishReason: String? = null,
+    /** Token counts reported by the provider, when it includes them. */
+    val usage: AiTokenUsage? = null,
 )
 
 class AiApiException(message: String, val statusCode: Int? = null) : Exception(message)
@@ -195,6 +197,11 @@ object AiApiClient {
             put("model", config.model)
             put("messages", openAiMessages(messages))
             put("stream", config.streaming)
+            if (config.streaming) {
+                // Ask OpenAI-compatible servers to include usage in the final
+                // stream chunk; servers that do not know the field ignore it.
+                putJsonObject("stream_options") { put("include_usage", true) }
+            }
             put("temperature", if (config.advancedMode) options.temperature else config.temperature)
             put("max_tokens", maxTokens)
             when (config.thinkingMode) {
@@ -246,6 +253,7 @@ object AiApiClient {
     ): AiCompletion {
         val text = StringBuilder()
         val calls = sortedMapOf<Int, MutableToolCall>()
+        val usage = UsageSink()
         var finishReason: String? = null
         var line = readLine()
         while (line != null) {
@@ -253,7 +261,7 @@ object AiApiClient {
             if (trimmed.startsWith("data:")) {
                 val data = trimmed.removePrefix("data:").trim()
                 if (data.isNotEmpty() && data != "[DONE]") {
-                    parseOpenAiChunk(data, text, calls, onDelta)?.let { finishReason = it }
+                    parseOpenAiChunk(data, text, calls, onDelta, usage)?.let { finishReason = it }
                 }
             }
             line = readLine()
@@ -262,6 +270,7 @@ object AiApiClient {
             text = text.toString(),
             toolCalls = calls.values.map { it.toToolCall() },
             finishReason = finishReason,
+            usage = usage.value,
         )
     }
 
@@ -271,11 +280,12 @@ object AiApiClient {
     ): AiCompletion {
         val text = StringBuilder()
         val calls = sortedMapOf<Int, MutableToolCall>()
+        val usage = UsageSink()
         var finishReason: String? = null
         var line = readLine()
         while (line != null) {
             if (line.isNotBlank()) {
-                parseOpenAiChunk(line.trim(), text, calls, onDelta)?.let { finishReason = it }
+                parseOpenAiChunk(line.trim(), text, calls, onDelta, usage)?.let { finishReason = it }
             }
             line = readLine()
         }
@@ -283,6 +293,7 @@ object AiApiClient {
             text = text.toString(),
             toolCalls = calls.values.map { it.toToolCall() },
             finishReason = finishReason,
+            usage = usage.value,
         )
     }
 
@@ -291,9 +302,12 @@ object AiApiClient {
         text: StringBuilder,
         calls: MutableMap<Int, MutableToolCall>,
         onDelta: (String) -> Unit,
+        usage: UsageSink,
     ): String? {
         val root = runCatching { json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return null
         root["error"]?.let { throw AiApiException(it.errorText()) }
+        // Streaming usage arrives in its own chunk with an empty choices array.
+        root.obj("usage")?.tokenUsage()?.let { usage.value = it }
         val choice = root.arr("choices")?.firstOrNull() as? JsonObject ?: return null
         val delta = (choice["delta"] as? JsonObject) ?: (choice["message"] as? JsonObject)
         if (delta != null) {
@@ -371,6 +385,7 @@ object AiApiClient {
             text = text,
             toolCalls = calls.filter { it.name.isNotBlank() },
             finishReason = choice.str("finish_reason"),
+            usage = root.obj("usage")?.tokenUsage(),
         )
     }
 
@@ -483,12 +498,14 @@ object AiApiClient {
     ): AiCompletion {
         val text = StringBuilder()
         val calls = mutableListOf<AiToolCall>()
+        var usage: AiTokenUsage? = null
         var line = readLine()
         while (line != null) {
             if (line.isNotBlank()) {
                 val root = runCatching { json.parseToJsonElement(line) as? JsonObject }.getOrNull()
                 if (root != null) {
                     root["error"]?.let { throw AiApiException(it.errorText()) }
+                    root.tokenUsage()?.let { usage = it }
                     val message = root["message"] as? JsonObject
                     val chunk = message?.str("content").orEmpty()
                     if (chunk.isNotEmpty()) {
@@ -516,6 +533,7 @@ object AiApiClient {
         return AiCompletion(
             text = text.toString(),
             toolCalls = calls.distinctBy { it.name to it.arguments },
+            usage = usage,
         )
     }
 
@@ -543,7 +561,11 @@ object AiApiClient {
                 )
             }
         }
-        return AiCompletion(text = text, toolCalls = calls)
+        return AiCompletion(
+            text = text,
+            toolCalls = calls,
+            usage = root.tokenUsage(),
+        )
     }
 
     // --------------------------------------------------------------- Anthropic
@@ -678,6 +700,8 @@ object AiApiClient {
         val text = StringBuilder()
         val toolBlocks = mutableMapOf<Int, MutableToolCall>()
         var stopReason: String? = null
+        var inputTokens = 0
+        var outputTokens = 0
         var line = readLine()
         loop@ while (line != null) {
             val trimmed = line.trim()
@@ -688,6 +712,11 @@ object AiApiClient {
                     if (root != null) {
                         when (root.str("type")) {
                             "error" -> throw AiApiException(root["error"].errorText())
+                            "message_start" -> {
+                                val usage = (root["message"] as? JsonObject)?.obj("usage")
+                                inputTokens = usage?.int("input_tokens") ?: inputTokens
+                                outputTokens = usage?.int("output_tokens") ?: outputTokens
+                            }
                             "content_block_start" -> {
                                 val index = root.int("index") ?: 0
                                 val block = root["content_block"] as? JsonObject
@@ -721,6 +750,7 @@ object AiApiClient {
 
                             "message_delta" -> {
                                 stopReason = (root["delta"] as? JsonObject)?.str("stop_reason") ?: stopReason
+                                root.obj("usage")?.int("output_tokens")?.let { outputTokens = it }
                             }
 
                             "message_stop" -> break@loop
@@ -730,10 +760,20 @@ object AiApiClient {
             }
             line = readLine()
         }
+        val usage = if (inputTokens > 0 || outputTokens > 0) {
+            AiTokenUsage(
+                promptTokens = inputTokens,
+                completionTokens = outputTokens,
+                totalTokens = inputTokens + outputTokens,
+            )
+        } else {
+            null
+        }
         return AiCompletion(
             text = text.toString(),
             toolCalls = toolBlocks.entries.sortedBy { it.key }.map { (_, block) -> block.toToolCall() },
             finishReason = stopReason,
+            usage = usage,
         )
     }
 
@@ -759,7 +799,12 @@ object AiApiClient {
         }
         val result = text.toString()
         if (result.isNotEmpty()) onDelta(result)
-        return AiCompletion(result, calls.filter { it.name.isNotBlank() }, root.str("stop_reason"))
+        return AiCompletion(
+            text = result,
+            toolCalls = calls.filter { it.name.isNotBlank() },
+            finishReason = root.str("stop_reason"),
+            usage = root.obj("usage")?.tokenUsage(),
+        )
     }
 
     // ----------------------------------------------------------------- helpers
@@ -970,5 +1015,10 @@ object AiApiClient {
                 arguments = args,
             )
         }
+    }
+
+    /** Mutable holder for the usage object found in a stream chunk. */
+    private class UsageSink {
+        var value: AiTokenUsage? = null
     }
 }

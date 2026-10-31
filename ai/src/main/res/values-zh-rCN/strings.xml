@@ -7,6 +7,7 @@
     <string name="ai_status_ready">已就绪 · %1$s</string>
     <string name="ai_open_chat">开始对话</string>
     <string name="ai_save_config">保存配置</string>
+    <string name="ai_saved">已保存</string>
     <string name="ai_test_connection">测试连接</string>
     <string name="ai_testing">测试中…</string>
     <string name="ai_endpoint">API 地址</string>
@@ -248,4 +249,17 @@
     <string name="ai_advanced_reset">重置高级选项</string>
     <string name="ai_advanced_warning">错误的值可能导致请求失败或数据泄露。高级 API 配置错误与开发者无关。</string>
     <string name="ai_connection_trust">提示词、设备上下文和 API Key 会发送到该地址。请只使用你信任的 AI 服务；开发者不运营也不控制第三方 AI 接口。</string>
+    <!-- Token usage -->
+    <string name="ai_usage">Token 使用量</string>
+    <string name="ai_usage_section">Token 使用量</string>
+    <string name="ai_usage_hint">根据每次 API 响应在本机统计，不会额外请求服务商。</string>
+    <string name="ai_usage_session">本次会话</string>
+    <string name="ai_usage_last">上次请求</string>
+    <string name="ai_usage_prompt">输入</string>
+    <string name="ai_usage_completion">输出</string>
+    <string name="ai_usage_total">总计</string>
+    <string name="ai_usage_requests">%1$d 次请求</string>
+    <string name="ai_usage_requests_label">请求次数</string>
+    <string name="ai_usage_empty">还没有 Token 用量。发送消息后统计；需要服务商在响应中返回 usage。</string>
+    <string name="ai_usage_reset">重置</string>
 </resources>

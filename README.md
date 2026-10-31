@@ -83,6 +83,17 @@ copy /Y C:\Users\Shirkneko\Documents\GitHub\SukiSU-AI-AAR\ai.aar C:\Users\Shirkn
 Keep `manager/ai-api` and the Host adapter in `manager/app/.../ai/host`; the AAR
 does not bundle them.
 
+The manager uses a trimmed `material-icons-custom.jar` instead of
+`material-icons-extended`, but the AAR compiles against the full icon set. Every
+Material icon the AAR references must exist in that jar at runtime. The icon
+generator scans `manager/app/libs/ai.aar` and merges its references, so rebuild
+the jar after adding an icon to the AAR:
+
+```powershell
+cd C:\Users\Shirkneko\Documents\GitHub\SukiSU-Ultra
+powershell -ExecutionPolicy Bypass -File scripts/generate_material_icons.ps1
+```
+
 If the SukiSU-Ultra checkout is on the `ai_chat` branch, `app/libs/ai.aar` takes
 precedence over the `:ai` source module. Remove that file when you want to build
 from source again.

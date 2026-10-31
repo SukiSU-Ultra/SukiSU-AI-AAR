@@ -22,8 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FabPosition
@@ -55,7 +57,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -67,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.FabPosition as MiuixFabPosition
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 import top.yukonga.miuix.kmp.basic.ToolbarPosition
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -417,10 +417,17 @@ fun rememberAiConfirmDialog(
         when (uiMode) {
             AiUiMode.Material -> AlertDialog(
                 onDismissRequest = handle::dismiss,
+                icon = {
+                    AiIconBadgeMaterial(
+                        icon = Icons.Rounded.Warning,
+                        size = 36.dp,
+                        iconSize = 20.dp,
+                    )
+                },
                 title = { Text(handle.title) },
                 text = { Text(handle.content) },
                 confirmButton = {
-                    TextButton(onClick = handle::confirm) { Text(handle.confirmLabel) }
+                    Button(onClick = handle::confirm) { Text(handle.confirmLabel) }
                 },
                 dismissButton = {
                     TextButton(onClick = handle::dismiss) {
@@ -431,30 +438,25 @@ fun rememberAiConfirmDialog(
 
             AiUiMode.Miuix -> OverlayDialog(
                 show = true,
-                title = handle.title,
+                title = null,
                 onDismissRequest = handle::dismiss,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    AiDialogHeaderMiuix(
+                        icon = Icons.Rounded.Warning,
+                        title = handle.title,
+                    )
                     MiuixText(
                         text = handle.content,
                         style = MiuixTheme.textStyles.body2,
-                        textAlign = TextAlign.Start,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        MiuixTextButton(
-                            text = stringResource(android.R.string.cancel),
-                            onClick = handle::dismiss,
-                            modifier = Modifier.weight(1f),
-                        )
-                        MiuixTextButton(
-                            text = handle.confirmLabel,
-                            onClick = handle::confirm,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    AiDialogActionsMiuix(
+                        dismissLabel = stringResource(android.R.string.cancel),
+                        onDismiss = handle::dismiss,
+                        confirmLabel = handle.confirmLabel,
+                        onConfirm = handle::confirm,
+                    )
                 }
             }
         }

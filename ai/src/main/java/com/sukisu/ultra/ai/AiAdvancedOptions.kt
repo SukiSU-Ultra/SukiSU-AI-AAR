@@ -76,6 +76,14 @@ data class AiAdvancedOptions(
     companion object {
         val DEFAULT = AiAdvancedOptions()
 
+        /** Keys from the removed balance-query experiment; ignore them on load. */
+        private val LEGACY_BALANCE_KEYS = setOf(
+            "balanceUrl",
+            "balanceApiKey",
+            "balanceUserId",
+            "balanceQuotaPerUnit",
+        )
+
         private val json = Json {
             // Unknown keys usually mean a typo in an expert option; surface it.
             ignoreUnknownKeys = false
@@ -86,7 +94,13 @@ data class AiAdvancedOptions(
 
         fun parse(raw: String): Result<AiAdvancedOptions> = runCatching {
             if (raw.isBlank()) return@runCatching DEFAULT
-            json.decodeFromString<AiAdvancedOptions>(raw).normalized()
+            val element = json.parseToJsonElement(raw)
+            val cleaned = if (element is JsonObject) {
+                JsonObject(element.filterKeys { it !in LEGACY_BALANCE_KEYS })
+            } else {
+                element
+            }
+            json.decodeFromJsonElement(serializer(), cleaned).normalized()
         }
 
         fun exampleJson(): String = json.encodeToString(serializer(), DEFAULT)

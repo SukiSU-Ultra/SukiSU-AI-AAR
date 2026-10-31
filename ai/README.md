@@ -97,7 +97,8 @@ a cleartext-enabled network security config (`network_security_config.xml`).
 
 `ai`:
 - `AiAssistant` / `AiFeatureProviderImpl` – runtime entry and reflective provider
-- `AiApi.kt` – provider protocols, streaming, model discovery
+- `AiApi.kt` – provider protocols, streaming, model discovery, token usage
+- `AiUsage.kt` – session token counters parsed from provider responses
 - `AiTools.kt` – tool schemas, scope checks and dispatch
 - `AiImageController.kt` – image generation/editing; storage is host-side
 - `AiChat*`, `AiHomeCard*`, `AiSettings*` – UI

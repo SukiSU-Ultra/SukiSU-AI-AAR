@@ -5,6 +5,7 @@ import com.sukisu.ultra.ai.api.AiNavigationTarget
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,14 +40,19 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +102,7 @@ fun AiChatMaterial(
     val clearContent = stringResource(R.string.ai_clear_history_message)
     val clearConfirm = stringResource(R.string.ai_clear_history_confirm)
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var showUsage by remember { mutableStateOf(false) }
     val deleteTitle = stringResource(R.string.ai_delete_message_title)
     val deleteContent = stringResource(R.string.ai_delete_message_message)
     val deleteConfirm = stringResource(R.string.ai_delete_message_confirm)
@@ -128,6 +135,10 @@ fun AiChatMaterial(
                 title = { Text(stringResource(R.string.ai_chat_title)) },
                 navigationIcon = { AiTopBarBackButton(onClick = actions.onBack) },
                 actions = {
+                    AiUsageChipMaterial(
+                        state = state.usage,
+                        onClick = { showUsage = true },
+                    )
                     IconButton(onClick = actions.onOpenSettings) {
                         Icon(Icons.Rounded.Tune, contentDescription = stringResource(R.string.ai_settings))
                     }
@@ -247,6 +258,14 @@ fun AiChatMaterial(
             onDeny = actions.onDeny,
         )
     }
+
+    if (showUsage) {
+        AiUsageDialogMaterial(
+            state = state.usage,
+            onReset = actions.onResetUsage,
+            onDismiss = { showUsage = false },
+        )
+    }
 }
 
 @Composable
@@ -314,14 +333,27 @@ private fun AiSetupCardMaterial(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = stringResource(
-                    if (enabled) R.string.ai_setup_required else R.string.ai_setup_disabled
-                ),
-                style = MaterialTheme.typography.titleSmall,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                AiIconBadgeMaterial(
+                    icon = Icons.Rounded.Tune,
+                    container = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    size = 34.dp,
+                    iconSize = 18.dp,
+                )
+                Text(
+                    text = stringResource(
+                        if (enabled) R.string.ai_setup_required else R.string.ai_setup_disabled
+                    ),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
             Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.ai_open_settings))
             }
@@ -464,16 +496,25 @@ private fun AiMessageBubbleMaterial(
                             }
                         }
                     }
-                    SelectionContainer {
-                        Text(
-                            text = linkifyAiText(message.content, MaterialTheme.colorScheme.primary),
-                            modifier = Modifier
-                                .heightIn(max = 260.dp)
-                                .verticalScroll(rememberScrollState()),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                text = linkifyAiText(
+                                    message.content,
+                                    MaterialTheme.colorScheme.primary,
+                                ),
+                                modifier = Modifier
+                                    .heightIn(max = 260.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(10.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                     val imagePath = message.imagePath
                     if (imagePath != null) {
@@ -510,21 +551,50 @@ private fun AiMessageBubbleMaterial(
                     val capability = message.capability
                     if (capability != null) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Text(
-                                    text = stringResource(R.string.ai_capability_needed),
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
-                                Text(
-                                    text = stringResource(R.string.ai_capability_hint),
-                                    style = MaterialTheme.typography.bodySmall,
+                                Row(
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    AiIconBadgeMaterial(
+                                        icon = Icons.Rounded.Lock,
+                                        container = MaterialTheme.colorScheme.onTertiaryContainer
+                                            .copy(alpha = 0.12f),
+                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        size = 30.dp,
+                                        iconSize = 16.dp,
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.ai_capability_needed),
+                                            style = MaterialTheme.typography.titleSmall,
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.ai_capability_hint),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                .copy(alpha = 0.8f),
+                                        )
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.onTertiaryContainer
+                                                .copy(alpha = 0.12f)
+                                        ),
                                 )
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -555,7 +625,10 @@ private fun AiMessageBubbleMaterial(
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                     } else if (!config.allowRootAccess) {
-                                        TextButton(onClick = { pendingRootGrant = true }) {
+                                        FilledTonalButton(
+                                            onClick = { pendingRootGrant = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
                                             Text(stringResource(R.string.ai_root_allow_once))
                                         }
                                     }
@@ -785,39 +858,26 @@ private fun AiApprovalDialogMaterial(
     var alwaysAllow by remember(pending.request) { mutableStateOf(false) }
     AiExpressiveDialog(
         onDismissRequest = onDeny,
-        title = { Text(stringResource(R.string.ai_approval_title)) },
+        title = null,
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(pending.request.title, style = MaterialTheme.typography.bodyLarge)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = pending.request.detail,
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .heightIn(max = 220.dp)
-                                .verticalScroll(rememberScrollState()),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Checkbox(
-                        checked = alwaysAllow,
-                        onCheckedChange = { alwaysAllow = it },
-                    )
-                    Text(
-                        text = stringResource(R.string.ai_approval_always),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AiDialogHeaderMaterial(
+                    icon = Icons.Rounded.Warning,
+                    title = stringResource(R.string.ai_approval_title),
+                    subtitle = pending.request.title,
+                    container = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                AiDialogScrollBoxMaterial(
+                    text = pending.request.detail,
+                    maxHeight = 220.dp,
+                    monospace = true,
+                )
+                AiDialogCheckRowMaterial(
+                    checked = alwaysAllow,
+                    onCheckedChange = { alwaysAllow = it },
+                    text = stringResource(R.string.ai_approval_always),
+                )
             }
         },
         confirmButton = {
@@ -841,30 +901,22 @@ internal fun AiDisclaimerDialogMaterial(
     var checked by remember { mutableStateOf(false) }
     AiExpressiveDialog(
         onDismissRequest = onExit,
-        title = { Text(stringResource(R.string.ai_disclaimer_title)) },
+        title = null,
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(R.string.ai_disclaimer_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .heightIn(max = 260.dp)
-                        .verticalScroll(rememberScrollState()),
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AiDialogHeaderMaterial(
+                    icon = Icons.Rounded.Shield,
+                    title = stringResource(R.string.ai_disclaimer_title),
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Checkbox(
-                        checked = checked,
-                        onCheckedChange = { checked = it },
-                    )
-                    Text(
-                        text = stringResource(R.string.ai_disclaimer_check),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                AiDialogScrollBoxMaterial(
+                    text = stringResource(R.string.ai_disclaimer_body),
+                    maxHeight = 260.dp,
+                )
+                AiDialogCheckRowMaterial(
+                    checked = checked,
+                    onCheckedChange = { checked = it },
+                    text = stringResource(R.string.ai_disclaimer_check),
+                )
             }
         },
         confirmButton = {
@@ -892,15 +944,18 @@ internal fun AiRiskDialogMaterial(
     val phraseMatches = phrase == null || phraseInput.trim().equals(phrase, ignoreCase = true)
     AiExpressiveDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ai_risk_title)) },
+        title = null,
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AiDialogHeaderMaterial(
+                    icon = Icons.Rounded.Warning,
+                    title = stringResource(R.string.ai_risk_title),
+                    container = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                AiDialogScrollBoxMaterial(
                     text = stringResource(kind.bodyRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .heightIn(max = 240.dp)
-                        .verticalScroll(rememberScrollState()),
+                    maxHeight = 240.dp,
                 )
                 if (phrase != null) {
                     OutlinedTextField(
@@ -913,24 +968,22 @@ internal fun AiRiskDialogMaterial(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Checkbox(
-                        checked = checked,
-                        onCheckedChange = { checked = it },
-                    )
-                    Text(
-                        text = stringResource(R.string.ai_risk_check),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                AiDialogCheckRowMaterial(
+                    checked = checked,
+                    onCheckedChange = { checked = it },
+                    text = stringResource(R.string.ai_risk_check),
+                )
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm, enabled = checked && phraseMatches) {
+            Button(
+                onClick = onConfirm,
+                enabled = checked && phraseMatches,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) {
                 Text(stringResource(R.string.ai_risk_confirm))
             }
         },

@@ -167,6 +167,7 @@ internal fun AiConfigEditorMiuix(
     onDraftChange: (AiConfig) -> Unit,
     testState: AiTestState,
     onTest: () -> Unit,
+    onSave: () -> Unit = {},
     fetchingModels: Boolean = false,
     onFetchModels: (Boolean) -> Unit = {},
 ) {
@@ -346,6 +347,13 @@ internal fun AiConfigEditorMiuix(
                     )
                 }
             }
+        }
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.ai_save_config))
         }
 
         AiToggleRowMiuix(

@@ -164,4 +164,78 @@ class AiApiClientTest {
         assertEquals("get_environment", result.toolCalls.first().name)
         assertEquals("{\"a\":1}", result.toolCalls.first().arguments)
     }
+
+    @Test
+    fun openAiBodyParsesUsage() = runBlocking {
+        val port = startServer(
+            "application/json",
+            """
+            {"choices":[{"message":{"content":"hi"}}],
+             "usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+            """.trimIndent(),
+        )
+        val result = AiApiClient.complete(
+            config = config(port, AiProviderFormat.OPENAI).copy(streaming = false),
+            messages = listOf(AiApiMessage("user", "hi")),
+        )
+        assertEquals(10, result.usage?.promptTokens)
+        assertEquals(5, result.usage?.completionTokens)
+        assertEquals(15, result.usage?.totalTokens)
+    }
+
+    @Test
+    fun openAiStreamParsesUsageFromFinalChunk() = runBlocking {
+        val port = startServer(
+            "text/event-stream",
+            """
+            data: {"choices":[{"delta":{"content":"Hi"}}]}
+
+            data: {"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":4,"total_tokens":7}}
+
+            data: [DONE]
+
+            """.trimIndent(),
+        )
+        val result = AiApiClient.complete(
+            config = config(port, AiProviderFormat.OPENAI),
+            messages = listOf(AiApiMessage("user", "hi")),
+        )
+        assertEquals("Hi", result.text)
+        assertEquals(3, result.usage?.promptTokens)
+        assertEquals(4, result.usage?.completionTokens)
+        assertEquals(7, result.usage?.totalTokens)
+    }
+
+    @Test
+    fun ollamaBodyParsesEvalCounts() = runBlocking {
+        val port = startServer(
+            "application/json",
+            """{"message":{"content":"hi"},"prompt_eval_count":8,"eval_count":2}""",
+        )
+        val result = AiApiClient.complete(
+            config = config(port, AiProviderFormat.OLLAMA).copy(streaming = false),
+            messages = listOf(AiApiMessage("user", "hi")),
+        )
+        assertEquals(8, result.usage?.promptTokens)
+        assertEquals(2, result.usage?.completionTokens)
+        assertEquals(10, result.usage?.totalTokens)
+    }
+
+    @Test
+    fun anthropicBodyParsesUsage() = runBlocking {
+        val port = startServer(
+            "application/json",
+            """
+            {"content":[{"type":"text","text":"Hi"}],
+             "usage":{"input_tokens":12,"output_tokens":6}}
+            """.trimIndent(),
+        )
+        val result = AiApiClient.complete(
+            config = config(port, AiProviderFormat.ANTHROPIC).copy(streaming = false),
+            messages = listOf(AiApiMessage("user", "hi")),
+        )
+        assertEquals(12, result.usage?.promptTokens)
+        assertEquals(6, result.usage?.completionTokens)
+        assertEquals(18, result.usage?.totalTokens)
+    }
 }
