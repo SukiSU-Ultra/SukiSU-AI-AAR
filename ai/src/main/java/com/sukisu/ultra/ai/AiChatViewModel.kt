@@ -86,8 +86,10 @@ class AiChatViewModel : ViewModel() {
     private var historyGeneration = 0
     private var autoApproveForRequest = false
     private var suggestionJob: Job? = null
-    private var suggestionGeneration = 0
-    private var suggestionRequestedGeneration = -1
+    private var suggestionsGenerated = false
+    /** Set while a turn is running; the next open may then extend the chips once. */
+    private var suggestionsDirty = false
+    private var suggestionsDirtyConsumed = false
     private var filePickerDeferred: CompletableDeferred<Uri?>? = null
     private var rootGrantedForRequest = false
     private var rootRequestDeferred: CompletableDeferred<Boolean>? = null
@@ -145,10 +147,12 @@ class AiChatViewModel : ViewModel() {
 
     fun saveConfig(config: AiConfig) {
         updateConfig(config)
+        // A different provider/model changes what the opener chips can offer, and
+        // filling in the configuration is what makes them possible at all.
         if (_uiState.value.messages.isEmpty()) {
-            suggestionGeneration++
-            suggestionRequestedGeneration = -1
-            ensureSuggestions()
+            suggestionsGenerated = false
+            suggestionsDirty = false
+            suggestionsDirtyConsumed = false
         }
     }
 
@@ -243,10 +247,14 @@ class AiChatViewModel : ViewModel() {
         }
     }
 
-    /** Generate a fresh set once per chat session (openers or follow-ups). */
+    /**
+     * Generate the chips only when the session has none yet. Each new chat
+     * (or clearing the history) resets the flag; simply reopening the page
+     * keeps the current chips.
+     */
     fun ensureSuggestions() {
-        if (suggestionRequestedGeneration == suggestionGeneration) return
-        suggestionRequestedGeneration = suggestionGeneration
+        if (suggestionsGenerated || (suggestionsDirty && suggestionsDirtyConsumed)) return
+        suggestionsDirtyConsumed = true
         refreshSuggestions()
     }
 
@@ -266,6 +274,7 @@ class AiChatViewModel : ViewModel() {
             return
         }
         suggestionJob?.cancel()
+        suggestionsGenerated = true
         _uiState.update { it.copy(suggestionsLoading = true) }
         suggestionJob = viewModelScope.launch {
             val recent = _uiState.value.messages
@@ -394,8 +403,9 @@ class AiChatViewModel : ViewModel() {
 
     fun clearHistory() {
         historyGeneration++
-        suggestionGeneration++
-        suggestionRequestedGeneration = -1
+        suggestionsGenerated = false
+        suggestionsDirty = false
+        suggestionsDirtyConsumed = false
         suggestionJob?.cancel()
         stop()
         AiSettings.clearHistory()
@@ -414,8 +424,9 @@ class AiChatViewModel : ViewModel() {
     fun deleteMessage(id: String) {
         _uiState.update { state -> state.copy(messages = state.messages.filterNot { it.id == id }) }
         if (_uiState.value.messages.isEmpty()) {
-            suggestionGeneration++
-            suggestionRequestedGeneration = -1
+            suggestionsGenerated = false
+            suggestionsDirty = false
+            suggestionsDirtyConsumed = false
         }
         persistHistory(historyGeneration)
     }
@@ -521,6 +532,8 @@ class AiChatViewModel : ViewModel() {
         rootRequestDeferred = null
         _uiState.update { it.copy(rootGrantedForRequest = false) }
         suggestionJob?.cancel()
+        suggestionsDirty = true
+        suggestionsDirtyConsumed = false
         val userMessage = AiChatMessage(newId(), AiMessageRole.USER, text)
         _uiState.update {
             it.copy(
@@ -616,8 +629,6 @@ class AiChatViewModel : ViewModel() {
 
             if (completion.toolCalls.isEmpty()) {
                 persistHistory(generation)
-                // Keep the follow-up chips coming after every completed answer.
-                refreshSuggestions()
                 return
             }
             if (!config.toolCalling) {

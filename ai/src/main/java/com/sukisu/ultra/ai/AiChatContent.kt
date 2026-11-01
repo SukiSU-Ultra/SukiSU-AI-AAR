@@ -1,5 +1,4 @@
 package com.sukisu.ultra.ai
-import com.sukisu.ultra.ai.api.AiUiMode
 
 import com.sukisu.ultra.ai.api.AiNavigationTarget
 
@@ -27,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -69,6 +69,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,12 +81,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
 import coil.compose.AsyncImage
 import com.sukisu.ultra.ai.R
+import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 
 @Composable
-fun AiChatMaterial(
+fun AiChat(
     state: AiChatUiState,
     actions: AiChatActions,
 ) {
@@ -97,7 +100,7 @@ fun AiChatMaterial(
     LaunchedEffect(state.pendingQuestion) {
         if (state.pendingQuestion != null) keyboardController?.hide()
     }
-    val clearDialog = rememberAiConfirmDialog(AiUiMode.Material, onConfirm = actions.onClearHistory)
+    val clearDialog = rememberAiConfirmDialog(onConfirm = actions.onClearHistory)
     val clearTitle = stringResource(R.string.ai_clear_history_title)
     val clearContent = stringResource(R.string.ai_clear_history_message)
     val clearConfirm = stringResource(R.string.ai_clear_history_confirm)
@@ -107,7 +110,6 @@ fun AiChatMaterial(
     val deleteContent = stringResource(R.string.ai_delete_message_message)
     val deleteConfirm = stringResource(R.string.ai_delete_message_confirm)
     val deleteDialog = rememberAiConfirmDialog(
-        AiUiMode.Material,
         onConfirm = {
             pendingDeleteId?.let(actions.onDeleteMessage)
             pendingDeleteId = null
@@ -115,6 +117,23 @@ fun AiChatMaterial(
         onDismiss = { pendingDeleteId = null },
     )
 
+    // Follow new content only while the user is already at the bottom. Browsing
+    // older messages must not be interrupted by the streaming answer or by a
+    // refresh of the follow-up chips.
+    val shouldFollow = remember { mutableStateOf(true) }
+    val userScrolling = remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val lastItem = info.totalItemsCount - 1
+            val atLastItem = lastItem >= 0 && lastVisible >= lastItem
+            atLastItem && listState.canScrollForward.not()
+        }.collect { atBottom ->
+            // Ignore the frames produced by our own scroll while a drag is in progress.
+            if (!userScrolling.value) shouldFollow.value = atBottom
+        }
+    }
     LaunchedEffect(
         state.messages.size,
         state.messages.lastOrNull()?.content?.length,
@@ -122,10 +141,9 @@ fun AiChatMaterial(
         state.suggestionsLoading,
         state.isSending,
     ) {
-        if (state.messages.isNotEmpty()) {
-            val last = listState.layoutInfo.totalItemsCount - 1
-            if (last >= 0) listState.scrollToItem(last)
-        }
+        if (state.messages.isEmpty() || !shouldFollow.value || userScrolling.value) return@LaunchedEffect
+        val last = listState.layoutInfo.totalItemsCount - 1
+        if (last >= 0) listState.scrollToItem(last)
     }
 
     AiExpressiveScaffold(
@@ -135,7 +153,7 @@ fun AiChatMaterial(
                 title = { Text(stringResource(R.string.ai_chat_title)) },
                 navigationIcon = { AiTopBarBackButton(onClick = actions.onBack) },
                 actions = {
-                    AiUsageChipMaterial(
+                    AiUsageChip(
                         state = state.usage,
                         onClick = { showUsage = true },
                     )
@@ -161,13 +179,33 @@ fun AiChatMaterial(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    // A drag means the user is reading; stop the automatic follow until
+                    // they scroll back to the bottom. Flinging does not count: letting go
+                    // near the bottom should resume following.
+                    .pointerInput(listState) {
+                        detectDragGestures(
+                            onDragStart = { userScrolling.value = true },
+                            // Only move events are consumed; start/end stay unconsumed so the
+                            // list can still cancel its own fling when the pointer goes down.
+                            onDrag = { change, _ -> change.consume() },
+                            onDragEnd = {
+                                userScrolling.value = false
+                                shouldFollow.value = !listState.canScrollForward
+                            },
+                            onDragCancel = {
+                                userScrolling.value = false
+                                shouldFollow.value = !listState.canScrollForward
+                            },
+                        )
+                    },
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (!state.config.isConfigured || !state.config.enabled) {
                     item(key = "setup") {
-                        AiSetupCardMaterial(
+                        AiSetupCard(
                             enabled = state.config.enabled,
                             onOpenSettings = actions.onOpenSettings,
                         )
@@ -175,7 +213,7 @@ fun AiChatMaterial(
                 }
                 if (state.messages.isEmpty()) {
                     item(key = "welcome") {
-                        AiWelcomeMaterial(
+                        AiWelcome(
                             suggestions = state.suggestions,
                             loading = state.suggestionsLoading,
                             onSuggestion = { text ->
@@ -204,7 +242,7 @@ fun AiChatMaterial(
                                 },
                             )
                     ) {
-                        AiMessageBubbleMaterial(
+                        AiMessageBubble(
                             message = message,
                             config = state.config,
                             rootGrantedForRequest = state.rootGrantedForRequest,
@@ -217,7 +255,7 @@ fun AiChatMaterial(
                 }
                 if (state.messages.isNotEmpty() && !state.isSending) {
                     item(key = "followups") {
-                        AiFollowUpSuggestionsMaterial(
+                        AiFollowUpSuggestions(
                             suggestions = state.suggestions,
                             loading = state.suggestionsLoading,
                             onSuggestion = { text ->
@@ -232,13 +270,13 @@ fun AiChatMaterial(
             }
 
             state.pendingQuestion?.let { question ->
-                AiQuestionPanelMaterial(
+                AiQuestionPanel(
                     question = question,
                     onAnswer = actions.onAnswerQuestion,
                 )
             }
 
-            AiComposerMaterial(
+            AiComposer(
                 value = state.input,
                 isSending = state.isSending,
                 error = state.error,
@@ -251,7 +289,7 @@ fun AiChatMaterial(
     }
 
     state.pendingApproval?.let { pending ->
-        AiApprovalDialogMaterial(
+        AiApprovalDialog(
             pending = pending,
             onAllow = actions.onApprove,
             onAllowAlways = actions.onApproveAlways,
@@ -260,7 +298,7 @@ fun AiChatMaterial(
     }
 
     if (showUsage) {
-        AiUsageDialogMaterial(
+        AiUsageDialog(
             state = state.usage,
             onReset = actions.onResetUsage,
             onDismiss = { showUsage = false },
@@ -269,7 +307,7 @@ fun AiChatMaterial(
 }
 
 @Composable
-private fun AiFollowUpSuggestionsMaterial(
+private fun AiFollowUpSuggestions(
     suggestions: List<String>,
     loading: Boolean,
     onSuggestion: (String) -> Unit,
@@ -322,7 +360,7 @@ private fun AiFollowUpSuggestionsMaterial(
 }
 
 @Composable
-private fun AiSetupCardMaterial(
+private fun AiSetupCard(
     enabled: Boolean,
     onOpenSettings: () -> Unit,
 ) {
@@ -339,7 +377,7 @@ private fun AiSetupCardMaterial(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                AiIconBadgeMaterial(
+                AiIconBadge(
                     icon = Icons.Rounded.Tune,
                     container = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.12f),
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -362,7 +400,7 @@ private fun AiSetupCardMaterial(
 }
 
 @Composable
-private fun AiMessageBubbleMaterial(
+private fun AiMessageBubble(
     message: AiChatMessage,
     config: AiConfig,
     rootGrantedForRequest: Boolean,
@@ -420,7 +458,7 @@ private fun AiMessageBubbleMaterial(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        AiMarkdownMaterial(
+                        AiMarkdown(
                             content = message.content,
                             allowCodeExecution = config.allowCodeExecution,
                             onRunCode = onRunCode,
@@ -563,7 +601,7 @@ private fun AiMessageBubbleMaterial(
                                     verticalAlignment = Alignment.Top,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 ) {
-                                    AiIconBadgeMaterial(
+                                    AiIconBadge(
                                         icon = Icons.Rounded.Lock,
                                         container = MaterialTheme.colorScheme.onTertiaryContainer
                                             .copy(alpha = 0.12f),
@@ -659,7 +697,7 @@ private fun AiMessageBubbleMaterial(
     pendingRiskCapability?.let { capability ->
         val kind = capability.riskKind()
         if (kind != null) {
-            AiRiskDialogMaterial(
+            AiRiskDialog(
                 kind = kind,
                 onConfirm = {
                     pendingRiskCapability = null
@@ -671,7 +709,7 @@ private fun AiMessageBubbleMaterial(
     }
 
     if (pendingRootGrant) {
-        AiRiskDialogMaterial(
+        AiRiskDialog(
             kind = AiRiskKind.ROOT,
             onConfirm = {
                 pendingRootGrant = false
@@ -683,7 +721,7 @@ private fun AiMessageBubbleMaterial(
 }
 
 @Composable
-private fun AiWelcomeMaterial(
+private fun AiWelcome(
     suggestions: List<String>,
     loading: Boolean,
     onSuggestion: (String) -> Unit,
@@ -764,7 +802,7 @@ private fun AiWelcomeMaterial(
 }
 
 @Composable
-private fun AiComposerMaterial(
+private fun AiComposer(
     value: String,
     isSending: Boolean,
     error: String?,
@@ -849,7 +887,7 @@ private fun AiComposerMaterial(
 }
 
 @Composable
-private fun AiApprovalDialogMaterial(
+private fun AiApprovalDialog(
     pending: AiPendingApproval,
     onAllow: () -> Unit,
     onAllowAlways: () -> Unit,
@@ -861,19 +899,19 @@ private fun AiApprovalDialogMaterial(
         title = null,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                AiDialogHeaderMaterial(
+                AiDialogHeader(
                     icon = Icons.Rounded.Warning,
                     title = stringResource(R.string.ai_approval_title),
                     subtitle = pending.request.title,
                     container = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
-                AiDialogScrollBoxMaterial(
+                AiDialogScrollBox(
                     text = pending.request.detail,
                     maxHeight = 220.dp,
                     monospace = true,
                 )
-                AiDialogCheckRowMaterial(
+                AiDialogCheckRow(
                     checked = alwaysAllow,
                     onCheckedChange = { alwaysAllow = it },
                     text = stringResource(R.string.ai_approval_always),
@@ -894,7 +932,7 @@ private fun AiApprovalDialogMaterial(
 }
 
 @Composable
-internal fun AiDisclaimerDialogMaterial(
+internal fun AiDisclaimerDialog(
     onAccept: () -> Unit,
     onExit: () -> Unit,
 ) {
@@ -904,15 +942,15 @@ internal fun AiDisclaimerDialogMaterial(
         title = null,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                AiDialogHeaderMaterial(
+                AiDialogHeader(
                     icon = Icons.Rounded.Shield,
                     title = stringResource(R.string.ai_disclaimer_title),
                 )
-                AiDialogScrollBoxMaterial(
+                AiDialogScrollBox(
                     text = stringResource(R.string.ai_disclaimer_body),
                     maxHeight = 260.dp,
                 )
-                AiDialogCheckRowMaterial(
+                AiDialogCheckRow(
                     checked = checked,
                     onCheckedChange = { checked = it },
                     text = stringResource(R.string.ai_disclaimer_check),
@@ -933,7 +971,7 @@ internal fun AiDisclaimerDialogMaterial(
 }
 
 @Composable
-internal fun AiRiskDialogMaterial(
+internal fun AiRiskDialog(
     kind: AiRiskKind,
     phrase: String? = null,
     onConfirm: () -> Unit,
@@ -947,13 +985,13 @@ internal fun AiRiskDialogMaterial(
         title = null,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                AiDialogHeaderMaterial(
+                AiDialogHeader(
                     icon = Icons.Rounded.Warning,
                     title = stringResource(R.string.ai_risk_title),
                     container = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
-                AiDialogScrollBoxMaterial(
+                AiDialogScrollBox(
                     text = stringResource(kind.bodyRes),
                     maxHeight = 240.dp,
                 )
@@ -968,7 +1006,7 @@ internal fun AiRiskDialogMaterial(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                AiDialogCheckRowMaterial(
+                AiDialogCheckRow(
                     checked = checked,
                     onCheckedChange = { checked = it },
                     text = stringResource(R.string.ai_risk_check),

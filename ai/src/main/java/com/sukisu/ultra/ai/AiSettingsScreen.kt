@@ -1,5 +1,4 @@
 package com.sukisu.ultra.ai
-import com.sukisu.ultra.ai.api.AiUiMode
 
 import android.annotation.SuppressLint
 import android.widget.Toast
@@ -55,21 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sukisu.ultra.ai.R
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
-fun AiSettingsScreen(uiMode: AiUiMode, onBack: () -> Unit) {
+fun AiSettingsScreen(onBack: () -> Unit) {
     val model = rememberAiChatViewModel()
     val state by model.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -199,33 +187,18 @@ fun AiSettingsScreen(uiMode: AiUiMode, onBack: () -> Unit) {
         }
     }
 
-    when (uiMode) {
-        AiUiMode.Material -> AiSettingsMaterial(
-            draft = draft,
-            onDraftChange = updateDraft,
-            testState = testState,
-            fetchingModels = fetchingModels,
-            usageState = state.usage,
-            onResetUsage = model::resetUsage,
-            onSave = { saveDraft(showConfirmation = true) },
-            onTest = testConnection,
-            onFetchModels = fetchModels,
-            onBack = handleBack,
-        )
-
-        AiUiMode.Miuix -> AiSettingsMiuix(
-            draft = draft,
-            onDraftChange = updateDraft,
-            testState = testState,
-            fetchingModels = fetchingModels,
-            usageState = state.usage,
-            onResetUsage = model::resetUsage,
-            onSave = { saveDraft(showConfirmation = true) },
-            onTest = testConnection,
-            onFetchModels = fetchModels,
-            onBack = handleBack,
-        )
-    }
+    AiSettings(
+        draft = draft,
+        onDraftChange = updateDraft,
+        testState = testState,
+        fetchingModels = fetchingModels,
+        usageState = state.usage,
+        onResetUsage = model::resetUsage,
+        onSave = { saveDraft(showConfirmation = true) },
+        onTest = testConnection,
+        onFetchModels = fetchModels,
+        onBack = handleBack,
+    )
 
     val target = modelTarget
     if (target != null) {
@@ -235,17 +208,12 @@ fun AiSettingsScreen(uiMode: AiUiMode, onBack: () -> Unit) {
         }
         val dismiss = { modelTarget = null }
         val selectedModel = if (target) draft.imageModel else draft.model
-        when (uiMode) {
-            AiUiMode.Material ->
-                AiModelListDialogMaterial(modelOptions, selectedModel, onSelect, dismiss)
-            AiUiMode.Miuix ->
-                AiModelListDialogMiuix(modelOptions, selectedModel, onSelect, dismiss)
-        }
+        AiModelListDialog(modelOptions, selectedModel, onSelect, dismiss)
     }
 }
 
 @Composable
-private fun AiSettingsMaterial(
+private fun AiSettings(
     draft: AiConfig,
     onDraftChange: (AiConfig) -> Unit,
     testState: AiTestState,
@@ -291,7 +259,7 @@ private fun AiSettingsMaterial(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                 )
             }
-            AiConfigEditorMaterial(
+            AiConfigEditor(
                 draft = draft,
                 onDraftChange = onDraftChange,
                 testState = testState,
@@ -304,7 +272,7 @@ private fun AiSettingsMaterial(
                 modifier = Modifier.padding(vertical = 16.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
-            AiUsageSectionMaterial(
+            AiUsageSection(
                 state = usageState,
                 onReset = onResetUsage,
             )
@@ -313,83 +281,7 @@ private fun AiSettingsMaterial(
 }
 
 @Composable
-private fun AiSettingsMiuix(
-    draft: AiConfig,
-    onDraftChange: (AiConfig) -> Unit,
-    testState: AiTestState,
-    fetchingModels: Boolean,
-    usageState: AiUsageState,
-    onResetUsage: () -> Unit,
-    onSave: () -> Unit,
-    onTest: () -> Unit,
-    onFetchModels: (Boolean) -> Unit,
-    onBack: () -> Unit,
-) {
-    val scroll = MiuixScrollBehavior()
-    AiAppScaffold(
-        containerColor = colorScheme.surface,
-        topBar = {
-            TopAppBar(
-                title = stringResource(R.string.ai_settings),
-                color = colorScheme.surface,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Back,
-                            contentDescription = null,
-                            tint = colorScheme.onBackground,
-                        )
-                    }
-                },
-                scrollBehavior = scroll,
-            )
-        },
-        popupHost = { },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colorScheme.surface)
-                .padding(padding)
-                .nestedScroll(scroll.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .navigationBarsPadding(),
-        ) {
-            if (AiLocalNetwork.isSupported() && AiLocalNetwork.isLanEndpoint(draft)) {
-                MiuixText(
-                    text = stringResource(R.string.ai_local_network_hint),
-                    style = MiuixTheme.textStyles.body2,
-                    color = colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                )
-            }
-            AiAppCard(modifier = Modifier.fillMaxWidth()) {
-                AiConfigEditorMiuix(
-                    draft = draft,
-                    onDraftChange = onDraftChange,
-                    testState = testState,
-                    onTest = onTest,
-                    onSave = onSave,
-                    fetchingModels = fetchingModels,
-                    onFetchModels = onFetchModels,
-                )
-            }
-            AiAppCard(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) {
-                AiUsageSectionMiuix(
-                    state = usageState,
-                    onReset = onResetUsage,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AiModelListDialogMaterial(
+private fun AiModelListDialog(
     models: List<String>,
     selected: String?,
     onSelect: (String) -> Unit,
@@ -400,7 +292,7 @@ private fun AiModelListDialogMaterial(
         title = null,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AiDialogHeaderMaterial(
+                AiDialogHeader(
                     icon = Icons.Rounded.Tune,
                     title = stringResource(R.string.ai_select_model),
                 )
@@ -452,77 +344,6 @@ private fun AiModelListDialogMaterial(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
-        },
-    )
-}
-
-@Composable
-private fun AiModelListDialogMiuix(
-    models: List<String>,
-    selected: String?,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    OverlayDialog(
-        show = true,
-        title = null,
-        onDismissRequest = onDismiss,
-        content = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AiDialogHeaderMiuix(
-                    icon = Icons.Rounded.Tune,
-                    title = stringResource(R.string.ai_select_model),
-                )
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 420.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    items(models) { model ->
-                        val isSelected = model == selected
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(
-                                    if (isSelected) {
-                                        colorScheme.primaryContainer
-                                    } else {
-                                        colorScheme.surfaceContainerHigh
-                                    }
-                                )
-                                .clickable { onSelect(model) }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            MiuixText(
-                                text = model,
-                                modifier = Modifier.weight(1f),
-                                style = MiuixTheme.textStyles.body1,
-                                color = if (isSelected) {
-                                    colorScheme.onPrimaryContainer
-                                } else {
-                                    colorScheme.onSurface
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (isSelected) {
-                                MiuixIcon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-                MiuixTextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
         },
     )
 }

@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.sukisu.ultra.ai.R
 
 @Composable
-fun AiQuestionPanelMaterial(
+fun AiQuestionPanel(
     question: AiUserQuestion,
     onAnswer: (String?) -> Unit,
 ) {
@@ -58,7 +58,7 @@ fun AiQuestionPanelMaterial(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                AiIconBadgeMaterial(
+                AiIconBadge(
                     icon = Icons.AutoMirrored.Rounded.HelpOutline,
                     size = 34.dp,
                     iconSize = 18.dp,

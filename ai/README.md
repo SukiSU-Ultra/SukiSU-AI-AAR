@@ -3,7 +3,7 @@
 Optional Android library (AAR) containing the AI assistant: provider protocols
 (OpenAI-compatible, Ollama, Anthropic), streaming and tool-call parsing, the tool
 registry and permission scopes, chat settings/history, Markdown rendering, and
-the Material 3 / Miuix chat, settings and home-card UIs.
+the Material 3 chat, settings and home-card UIs.
 
 Compose/Kotlin UI cannot be compiled into a native `.so`; the Android binary
 unit for this feature is an AAR. It can be dropped in or removed as a whole, and
@@ -69,16 +69,15 @@ do not exclude the bridge module when using the AAR.
 4. Render the optional UI through the bridge, not the library classes:
    ```kotlin
    if (AiFeatureBridge.isAvailable) {
-       AiFeatureBridge.HomeCardMaterial(onOpenChat = { /* push chat */ })
+       AiFeatureBridge.HomeCard(onOpenChat = { /* push chat */ })
    }
 
    AiFeatureBridge.ChatScreen(
-       uiMode = AiUiMode.Material, // or AiUiMode.Miuix
        onClose = { navigator.pop() },
        onOpenSettings = { navigator.push(AiSettingsRoute) },
        onNavigate = { target -> /* handle your host-defined target */ },
    )
-   AiFeatureBridge.SettingsScreen(uiMode = AiUiMode.Material, onBack = { navigator.pop() })
+   AiFeatureBridge.SettingsScreen(onBack = { navigator.pop() })
    ```
    `AiNavigationTarget` is an opaque marker; the library never interprets it.
    `AiFeatureService` returns host objects and the app maps them to its routes.
@@ -90,7 +89,7 @@ a cleartext-enabled network security config (`network_security_config.xml`).
 ## Layout
 
 `ai-api`:
-- `AiHost.kt` – host SPI, shared models, `AiUiMode`
+- `AiHost.kt` – host SPI and shared models
 - `AiFeatureProvider.kt` – provider interface and `AiFeatureBridge`
 - `AiGithubUrls.kt` – shared release URL validation
 - `res/` – the two strings used by the host-side appearance switch
@@ -102,7 +101,7 @@ a cleartext-enabled network security config (`network_security_config.xml`).
 - `AiTools.kt` – tool schemas, scope checks and dispatch
 - `AiImageController.kt` – image generation/editing; storage is host-side
 - `AiChat*`, `AiHomeCard*`, `AiSettings*` – UI
-- `AiUiKit.kt` – theme-aware Material/Miuix widgets used by the assistant
+- `AiUiKit.kt` – Material 3 widgets shared by the assistant screens
 - `src/main/res` – AI strings (English + zh-rCN)
 - `src/test` – provider parsing, config, Markdown, permissions, web parsing
 

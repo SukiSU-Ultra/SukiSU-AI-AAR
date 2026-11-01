@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.sukisu.ultra.ai.R
 
 @Composable
-fun AiMarkdownMaterial(
+fun AiMarkdown(
     content: String,
     allowCodeExecution: Boolean,
     onRunCode: (String) -> Unit,
@@ -52,13 +52,13 @@ fun AiMarkdownMaterial(
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         blocks.forEach { block ->
-            AiMarkdownBlockMaterial(block, allowCodeExecution, onRunCode)
+            AiMarkdownBlock(block, allowCodeExecution, onRunCode)
         }
     }
 }
 
 @Composable
-private fun AiMarkdownBlockMaterial(
+private fun AiMarkdownBlock(
     block: AiMarkdownBlock,
     allowCodeExecution: Boolean,
     onRunCode: (String) -> Unit,
@@ -81,13 +81,13 @@ private fun AiMarkdownBlockMaterial(
             color = MaterialTheme.colorScheme.onSurface,
         )
 
-        is AiMarkdownBlock.Code -> AiCodeBlockMaterial(
+        is AiMarkdownBlock.Code -> AiCodeBlock(
             block = block,
             allowCodeExecution = allowCodeExecution,
             onRunCode = onRunCode,
         )
 
-        is AiMarkdownBlock.ListBlock -> AiListBlockMaterial(
+        is AiMarkdownBlock.ListBlock -> AiListBlock(
             block = block,
             allowCodeExecution = allowCodeExecution,
             onRunCode = onRunCode,
@@ -109,12 +109,12 @@ private fun AiMarkdownBlockMaterial(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 block.blocks.forEach { child ->
-                    AiMarkdownBlockMaterial(child, allowCodeExecution, onRunCode)
+                    AiMarkdownBlock(child, allowCodeExecution, onRunCode)
                 }
             }
         }
 
-        is AiMarkdownBlock.Table -> AiTableMaterial(block)
+        is AiMarkdownBlock.Table -> AiTable(block)
 
         AiMarkdownBlock.Divider -> HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant,
@@ -123,7 +123,7 @@ private fun AiMarkdownBlockMaterial(
 }
 
 @Composable
-private fun AiListBlockMaterial(
+private fun AiListBlock(
     block: AiMarkdownBlock.ListBlock,
     allowCodeExecution: Boolean,
     onRunCode: (String) -> Unit,
@@ -147,7 +147,7 @@ private fun AiListBlockMaterial(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     item.blocks.forEach { child ->
-                        AiMarkdownBlockMaterial(child, allowCodeExecution, onRunCode)
+                        AiMarkdownBlock(child, allowCodeExecution, onRunCode)
                     }
                 }
             }
@@ -156,7 +156,7 @@ private fun AiListBlockMaterial(
 }
 
 @Composable
-private fun AiTableMaterial(block: AiMarkdownBlock.Table) {
+private fun AiTable(block: AiMarkdownBlock.Table) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -170,7 +170,7 @@ private fun AiTableMaterial(block: AiMarkdownBlock.Table) {
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
             ) {
                 block.header.forEach { cell ->
-                    AiTableCellMaterial(
+                    AiTableCell(
                         text = cell,
                         header = true,
                         modifier = Modifier.weight(1f),
@@ -182,7 +182,7 @@ private fun AiTableMaterial(block: AiMarkdownBlock.Table) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Row(modifier = Modifier.fillMaxWidth()) {
                 row.forEach { cell ->
-                    AiTableCellMaterial(
+                    AiTableCell(
                         text = cell,
                         header = false,
                         modifier = Modifier.weight(1f),
@@ -194,7 +194,7 @@ private fun AiTableMaterial(block: AiMarkdownBlock.Table) {
 }
 
 @Composable
-private fun AiTableCellMaterial(
+private fun AiTableCell(
     text: androidx.compose.ui.text.AnnotatedString,
     header: Boolean,
     modifier: Modifier = Modifier,
@@ -213,7 +213,7 @@ private fun AiTableCellMaterial(
 }
 
 @Composable
-private fun AiCodeBlockMaterial(
+private fun AiCodeBlock(
     block: AiMarkdownBlock.Code,
     allowCodeExecution: Boolean,
     onRunCode: (String) -> Unit,
@@ -248,7 +248,7 @@ private fun AiCodeBlockMaterial(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (block.executable) {
-                    CodeBadgeMaterial(
+                    CodeBadge(
                         text = stringResource(
                             if (allowCodeExecution) {
                                 R.string.ai_code_executable
@@ -306,7 +306,7 @@ private fun AiCodeBlockMaterial(
 }
 
 @Composable
-private fun CodeBadgeMaterial(text: String, active: Boolean) {
+private fun CodeBadge(text: String, active: Boolean) {
     Surface(
         shape = RoundedCornerShape(5.dp),
         color = if (active) {

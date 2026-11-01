@@ -52,7 +52,7 @@ import com.sukisu.ultra.ai.R
  * every setting lives in the chat screen.
  */
 @Composable
-fun AiHomeCardMaterial(onOpenChat: () -> Unit) {
+fun AiHomeCard(onOpenChat: () -> Unit) {
     val model = rememberAiChatViewModel()
     val state by model.uiState.collectAsStateWithLifecycle()
     val config = state.config
@@ -170,7 +170,7 @@ fun AiHomeCardMaterial(onOpenChat: () -> Unit) {
 }
 
 @Composable
-internal fun AiConfigEditorMaterial(
+internal fun AiConfigEditor(
     draft: AiConfig,
     onDraftChange: (AiConfig) -> Unit,
     testState: AiTestState,
@@ -743,7 +743,7 @@ internal fun AiConfigEditorMaterial(
     }
 
     pendingRiskKind?.let { kind ->
-        AiRiskDialogMaterial(
+        AiRiskDialog(
             kind = kind,
             phrase = pendingRiskPhrase,
             onConfirm = {

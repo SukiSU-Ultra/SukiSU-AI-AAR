@@ -81,9 +81,6 @@ dependencies {
     implementation(libs.commonmark.ext.autolink)
     implementation(libs.commonmark.ext.task.list.items)
 
-    implementation(libs.miuix.ui)
-    implementation(libs.miuix.icons)
-
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
 

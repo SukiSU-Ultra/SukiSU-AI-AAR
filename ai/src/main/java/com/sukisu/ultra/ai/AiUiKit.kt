@@ -1,7 +1,5 @@
 package com.sukisu.ultra.ai
 
-import com.sukisu.ultra.ai.api.AiUiMode
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -62,16 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
-import top.yukonga.miuix.kmp.basic.Card as MiuixCard
-import top.yukonga.miuix.kmp.basic.CardColors
-import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
-import top.yukonga.miuix.kmp.basic.FabPosition as MiuixFabPosition
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.ToolbarPosition
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 
 @Composable
 private fun backgroundImageActive(): Boolean =
@@ -162,43 +150,6 @@ fun aiExpressiveTopAppBarColors(
     )
 }
 
-/** Miuix scaffold that follows the host's custom background image. */
-@Composable
-fun AiAppScaffold(
-    modifier: Modifier = Modifier,
-    topBar: @Composable () -> Unit = {},
-    bottomBar: @Composable () -> Unit = {},
-    floatingActionButton: @Composable () -> Unit = {},
-    floatingActionButtonPosition: MiuixFabPosition = MiuixFabPosition.End,
-    floatingToolbar: @Composable () -> Unit = {},
-    floatingToolbarPosition: ToolbarPosition = ToolbarPosition.BottomCenter,
-    snackbarHost: @Composable () -> Unit = {},
-    popupHost: @Composable () -> Unit = { MiuixPopupHost() },
-    containerColor: Color = Color.Unspecified,
-    contentWindowInsets: WindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
-    content: @Composable (PaddingValues) -> Unit,
-) {
-    val resolvedContainerColor = when {
-        containerColor != Color.Unspecified -> containerColor
-        backgroundImageActive() -> Color.Transparent
-        else -> MiuixTheme.colorScheme.surface
-    }
-    MiuixScaffold(
-        modifier = modifier,
-        topBar = { TopBarVeil(MiuixTheme.colorScheme.surface) { topBar() } },
-        bottomBar = bottomBar,
-        floatingActionButton = floatingActionButton,
-        floatingActionButtonPosition = floatingActionButtonPosition,
-        floatingToolbar = floatingToolbar,
-        floatingToolbarPosition = floatingToolbarPosition,
-        snackbarHost = snackbarHost,
-        popupHost = popupHost,
-        containerColor = resolvedContainerColor,
-        contentWindowInsets = contentWindowInsets,
-        content = content,
-    )
-}
-
 @Composable
 fun aiBackgroundAwareColor(
     color: Color,
@@ -207,33 +158,6 @@ fun aiBackgroundAwareColor(
     color.copy(alpha = backgroundAlpha)
 } else {
     color
-}
-
-@Composable
-fun aiBackgroundAwareCardColors(
-    color: Color = MiuixTheme.colorScheme.surfaceContainer,
-    contentColor: Color = MiuixTheme.colorScheme.onSurfaceContainer,
-    backgroundAlpha: Float = cardBackgroundAlpha(),
-): CardColors {
-    val adjusted = if (backgroundImageActive()) color.copy(alpha = backgroundAlpha) else color
-    return MiuixCardDefaults.defaultColors(color = adjusted, contentColor = contentColor)
-}
-
-@Composable
-fun AiAppCard(
-    modifier: Modifier = Modifier,
-    cornerRadius: Dp = MiuixCardDefaults.CornerRadius,
-    insideMargin: PaddingValues = MiuixCardDefaults.InsideMargin,
-    colors: CardColors = aiBackgroundAwareCardColors(),
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    MiuixCard(
-        modifier = modifier,
-        cornerRadius = cornerRadius,
-        insideMargin = insideMargin,
-        colors = colors,
-        content = content,
-    )
 }
 
 @Composable
@@ -363,7 +287,7 @@ fun AiExpressiveDialog(
     )
 }
 
-/** Simple two-button confirmation dialog shared by both UI flavours. */
+/** Simple two-button confirmation dialog used by the assistant screens. */
 class AiConfirmDialogHandle internal constructor() {
     internal var visible by mutableStateOf(false)
         private set
@@ -407,59 +331,32 @@ class AiConfirmDialogHandle internal constructor() {
 
 @Composable
 fun rememberAiConfirmDialog(
-    uiMode: AiUiMode,
     onConfirm: () -> Unit = {},
     onDismiss: () -> Unit = {},
 ): AiConfirmDialogHandle {
     val handle = remember { AiConfirmDialogHandle() }
     handle.bind(onConfirm, onDismiss)
     if (handle.visible) {
-        when (uiMode) {
-            AiUiMode.Material -> AlertDialog(
-                onDismissRequest = handle::dismiss,
-                icon = {
-                    AiIconBadgeMaterial(
-                        icon = Icons.Rounded.Warning,
-                        size = 36.dp,
-                        iconSize = 20.dp,
-                    )
-                },
-                title = { Text(handle.title) },
-                text = { Text(handle.content) },
-                confirmButton = {
-                    Button(onClick = handle::confirm) { Text(handle.confirmLabel) }
-                },
-                dismissButton = {
-                    TextButton(onClick = handle::dismiss) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                },
-            )
-
-            AiUiMode.Miuix -> OverlayDialog(
-                show = true,
-                title = null,
-                onDismissRequest = handle::dismiss,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    AiDialogHeaderMiuix(
-                        icon = Icons.Rounded.Warning,
-                        title = handle.title,
-                    )
-                    MiuixText(
-                        text = handle.content,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                    AiDialogActionsMiuix(
-                        dismissLabel = stringResource(android.R.string.cancel),
-                        onDismiss = handle::dismiss,
-                        confirmLabel = handle.confirmLabel,
-                        onConfirm = handle::confirm,
-                    )
+        AlertDialog(
+            onDismissRequest = handle::dismiss,
+            icon = {
+                AiIconBadge(
+                    icon = Icons.Rounded.Warning,
+                    size = 36.dp,
+                    iconSize = 20.dp,
+                )
+            },
+            title = { Text(handle.title) },
+            text = { Text(handle.content) },
+            confirmButton = {
+                Button(onClick = handle::confirm) { Text(handle.confirmLabel) }
+            },
+            dismissButton = {
+                TextButton(onClick = handle::dismiss) {
+                    Text(stringResource(android.R.string.cancel))
                 }
-            }
-        }
+            },
+        )
     }
     return handle
 }
