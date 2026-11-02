@@ -50,6 +50,8 @@
     <string name="ai_send">Send</string>
     <string name="ai_stop">Stop</string>
     <string name="ai_new_chat">New chat</string>
+    <string name="ai_scroll_to_bottom">Jump to latest message</string>
+    <string name="ai_scroll_to_top">Jump to oldest message</string>
     <string name="ai_clear_history_title">Clear chat history?</string>
     <string name="ai_clear_history_message">All messages stored on this device will be removed.</string>
     <string name="ai_clear_history_confirm">Clear</string>

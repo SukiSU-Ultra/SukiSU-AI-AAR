@@ -4,6 +4,10 @@ import com.sukisu.ultra.ai.api.AiNavigationTarget
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,10 +44,13 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Warning
@@ -59,20 +66,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -85,6 +96,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import coil.compose.AsyncImage
 import com.sukisu.ultra.ai.R
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -146,6 +158,36 @@ fun AiChat(
         if (last >= 0) listState.scrollToItem(last)
     }
 
+    // The list opens on the newest message. The jump button then points back to
+    // the bottom, or to the top once the user has already scrolled down there.
+    val scope = rememberCoroutineScope()
+    val atBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount == 0 || (last >= info.totalItemsCount - 1 && !listState.canScrollForward)
+        }
+    }
+    LaunchedEffect(state.messages.isNotEmpty()) {
+        val last = listState.layoutInfo.totalItemsCount - 1
+        if (last >= 0) listState.scrollToItem(last)
+    }
+    val jumpToBottom = {
+        scope.launch {
+            userScrolling.value = false
+            shouldFollow.value = true
+            val last = listState.layoutInfo.totalItemsCount - 1
+            if (last >= 0) listState.animateScrollToItem(last)
+        }
+    }
+    val jumpToTop = {
+        scope.launch {
+            userScrolling.value = false
+            shouldFollow.value = false
+            listState.animateScrollToItem(0)
+        }
+    }
+
     AiExpressiveScaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
@@ -177,10 +219,9 @@ fun AiChat(
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
+            Box(modifier = Modifier.weight(1f)) {
+                val listModifier = Modifier
+                    .fillMaxSize()
                     // A drag means the user is reading; stop the automatic follow until
                     // they scroll back to the bottom. Flinging does not count: letting go
                     // near the bottom should resume following.
@@ -199,74 +240,114 @@ fun AiChat(
                                 shouldFollow.value = !listState.canScrollForward
                             },
                         )
-                    },
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                if (!state.config.isConfigured || !state.config.enabled) {
-                    item(key = "setup") {
-                        AiSetupCard(
-                            enabled = state.config.enabled,
-                            onOpenSettings = actions.onOpenSettings,
-                        )
                     }
-                }
-                if (state.messages.isEmpty()) {
-                    item(key = "welcome") {
-                        AiWelcome(
-                            suggestions = state.suggestions,
-                            loading = state.suggestionsLoading,
-                            onSuggestion = { text ->
-                                actions.onInputChange(text)
-                                actions.onSend()
-                            },
-                            onRefresh = actions.onRefreshSuggestions,
-                        )
-                    }
-                }
-                items(state.messages, key = { it.id }) { message ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = {
-                                    if (!message.streaming) {
-                                        pendingDeleteId = message.id
-                                        deleteDialog.showConfirm(
-                                            title = deleteTitle,
-                                            content = deleteContent,
-                                            confirm = deleteConfirm,
-                                        )
-                                    }
-                                },
+                LazyColumn(
+                    state = listState,
+                    modifier = listModifier,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (!state.config.isConfigured || !state.config.enabled) {
+                        item(key = "setup") {
+                            AiSetupCard(
+                                enabled = state.config.enabled,
+                                onOpenSettings = actions.onOpenSettings,
                             )
-                    ) {
-                        AiMessageBubble(
-                            message = message,
-                            config = state.config,
-                            rootGrantedForRequest = state.rootGrantedForRequest,
-                            onNavigate = actions.onNavigate,
-                            onCapabilityChange = actions.onSetCapability,
-                            onGrantRoot = actions.onGrantRoot,
-                            onRunCode = actions.onRunCode,
-                        )
+                        }
                     }
-                }
-                if (state.messages.isNotEmpty() && !state.isSending) {
-                    item(key = "followups") {
-                        AiFollowUpSuggestions(
-                            suggestions = state.suggestions,
-                            loading = state.suggestionsLoading,
-                            onSuggestion = { text ->
-                                actions.onInputChange(text)
-                                actions.onSend()
-                            },
-                            onRefresh = actions.onRefreshSuggestions,
-                        )
+                    if (state.messages.isEmpty()) {
+                        item(key = "welcome") {
+                            AiWelcome(
+                                suggestions = state.suggestions,
+                                loading = state.suggestionsLoading,
+                                onSuggestion = { text ->
+                                    actions.onInputChange(text)
+                                    actions.onSend()
+                                },
+                                onRefresh = actions.onRefreshSuggestions,
+                            )
+                        }
                     }
+                    items(state.messages, key = { it.id }) { message ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {},
+                                    onLongClick = {
+                                        if (!message.streaming) {
+                                            pendingDeleteId = message.id
+                                            deleteDialog.showConfirm(
+                                                title = deleteTitle,
+                                                content = deleteContent,
+                                                confirm = deleteConfirm,
+                                            )
+                                        }
+                                    },
+                                )
+                        ) {
+                            AiMessageBubble(
+                                message = message,
+                                config = state.config,
+                                rootGrantedForRequest = state.rootGrantedForRequest,
+                                onNavigate = actions.onNavigate,
+                                onCapabilityChange = actions.onSetCapability,
+                                onGrantRoot = actions.onGrantRoot,
+                                onRunCode = actions.onRunCode,
+                            )
+                        }
+                    }
+                    if (state.messages.isNotEmpty() && !state.isSending) {
+                        item(key = "followups") {
+                            AiFollowUpSuggestions(
+                                suggestions = state.suggestions,
+                                loading = state.suggestionsLoading,
+                                onSuggestion = { text ->
+                                    actions.onInputChange(text)
+                                    actions.onSend()
+                                },
+                                onRefresh = actions.onRefreshSuggestions,
+                            )
+                        }
+                    }
+                    item(key = "bottom") { Spacer(Modifier.height(4.dp)) }
                 }
-                item(key = "bottom") { Spacer(Modifier.height(4.dp)) }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = state.messages.isNotEmpty(),
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 12.dp)
+                        // Tall bubbles fill the whole pointer area; the scrim gives the
+                        // jump control its shape and keeps it readable over the text.
+                        .shadow(3.dp, CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+                ) {
+                    SmallExtendedFloatingActionButton(
+                        onClick = { if (atBottom) jumpToTop() else jumpToBottom() },
+                        icon = {
+                            Icon(
+                                imageVector = if (atBottom) {
+                                    Icons.Rounded.KeyboardArrowUp
+                                } else {
+                                    Icons.Rounded.KeyboardArrowDown
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (atBottom) R.string.ai_scroll_to_top else R.string.ai_scroll_to_bottom
+                                ),
+                                maxLines = 1,
+                            )
+                        },
+                    )
+                }
             }
 
             state.pendingQuestion?.let { question ->

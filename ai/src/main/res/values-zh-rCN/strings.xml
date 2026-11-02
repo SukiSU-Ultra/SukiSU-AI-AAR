@@ -49,6 +49,8 @@
     <string name="ai_send">发送</string>
     <string name="ai_stop">停止</string>
     <string name="ai_new_chat">新对话</string>
+    <string name="ai_scroll_to_bottom">跳到最新消息</string>
+    <string name="ai_scroll_to_top">跳到最早消息</string>
     <string name="ai_clear_history_title">清空聊天记录？</string>
     <string name="ai_clear_history_message">保存在本机的所有消息都会被删除。</string>
     <string name="ai_clear_history_confirm">清空</string>
